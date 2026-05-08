@@ -53,8 +53,8 @@ def parse_srt_to_json(srt_file_path, output_json_path):
 # --- RUN ---
 if __name__ == "__main__":
     # Define our input and output paths based on our GitHub repo structure
-    input_file = ""
-    output_file = ""
+    input_file = "../data/Smurfs2025.srt"
+    output_file = "../data/Smurfs2025_parsed.json"
     
     # Run the parser
     parse_srt_to_json(input_file, output_file)
