@@ -116,3 +116,7 @@ def parse_epub(self, epub_file_path, output_json_path):
         with open(output_json_path, 'w', encoding='utf-8') as f:
             json.dump(parsed_data, f, indent=4)
         print(f"Success! Parsed {len(parsed_data)} book paragraphs.") 
+
+# --- RUN THE SCRIPT ---
+if __name__ == "__main__":
+    parser = MediaParser() 
