@@ -1,6 +1,8 @@
 import re
 import json
-import os
+import ebooklib
+from ebooklib import epub
+from bs4 import BeautifulSoup 
 
 class MediaParser:
     """Handles ingestion, cleaning, and chunking of media files.""" 
@@ -81,3 +83,36 @@ def parse_srt(self, srt_file_path, output_json_path, group_size=3):
         with open(output_json_path, 'w', encoding='utf-8') as f:
             json.dump(parsed_data, f, indent=4)
         print(f"Success! Condensed into {len(parsed_data)} optimized context chunks.")
+        
+        
+def parse_epub(self, epub_file_path, output_json_path):
+    
+        """Converts an ebook into JSON array split by paragraphs."""
+        try:
+            book = epub.read_epub(epub_file_path)
+        except Exception as e:
+            print(f"Error reading epub: {e}")
+            return
+
+        parsed_data = []
+        paragraph_index = 1
+
+        for item in book.get_items():
+            if item.get_type() == ebooklib.ITEM_DOCUMENT:
+                soup = BeautifulSoup(item.get_content(), 'html.parser')
+                text = soup.get_text(separator='\n')
+                paragraphs = [p.strip() for p in text.split('\n') if p.strip()]
+
+                for paragraph in paragraphs:
+                    cleaned_paragraph = self.clean_text(paragraph)
+                    # Only keep substantial paragraphs to avoid wasting AI tokens on chapter titles
+                    if len(cleaned_paragraph) > 20: 
+                        parsed_data.append({
+                            "location_flag": f"Paragraph {paragraph_index}",
+                            "text": cleaned_paragraph
+                        })
+                        paragraph_index += 1
+
+        with open(output_json_path, 'w', encoding='utf-8') as f:
+            json.dump(parsed_data, f, indent=4)
+        print(f"Success! Parsed {len(parsed_data)} book paragraphs.") 
