@@ -119,4 +119,16 @@ def parse_epub(self, epub_file_path, output_json_path):
 
 # --- RUN THE SCRIPT ---
 if __name__ == "__main__":
-    parser = MediaParser() 
+    parser = MediaParser()
+    
+    print("--- Starting Media Pal Ingestion Pipeline ---")
+    
+    # 1. Test the Subtitle Parser (grouping by 3 lines)
+    print("\nProcessing Movie Subtitles...")
+    parser.parse_srt("../data/Smurfs2025.srt", "../data/smurfs_parsed.json", group_size=3)
+    
+    # 2. Test the EPUB Book Parser
+    print("\nProcessing EPUB Book...")
+    parser.parse_epub("../data/behn-fair-jilt.epub", "../data/behn_parsed.json")
+    
+    print("\n--- Pipeline Complete! ---")
