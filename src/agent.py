@@ -49,3 +49,29 @@ class MediaPalAgent:
         if match:
             return match.group(0)
         return raw_text
+    
+    def analyze_chunk(self, text_chunk):
+        """Sends a single group of subtitles to Qwen via Hugging Face."""
+        if not self.is_active:
+            return {"error": "Mock mode - HF_TOKEN required for real analysis."}
+
+        try:
+            # Pinging the free Serverless Inference API for Qwen
+            response = self.client.chat_completion(
+                model="Qwen/Qwen2.5-72B-Instruct",
+                messages=[
+                    {"role": "system", "content": self.get_system_prompt()},
+                    {"role": "user", "content": f"Analyze this subtitle chunk: {text_chunk}"}
+                ],
+                max_tokens=200,
+                temperature=0.1 # Very low temperature for highly predictable JSON formatting
+            )
+            
+            raw_output = response.choices[0].message.content
+            clean_json_string = self.extract_json(raw_output)
+            
+            return json.loads(clean_json_string)
+            
+        except Exception as e:
+            print(f"API Error: {e}")
+            return {"error": "Failed to analyze chunk"}
