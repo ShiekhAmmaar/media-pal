@@ -1,3 +1,5 @@
+venv/
 *.srt
 *.json
 *.epub
+.env
