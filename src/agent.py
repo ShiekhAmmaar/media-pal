@@ -75,3 +75,43 @@ class MediaPalAgent:
         except Exception as e:
             print(f"API Error: {e}")
             return {"error": "Failed to analyze chunk"}
+        
+def run_evaluation_pipeline(input_file, output_file, test_limit=5):
+    """Loads parsed data, runs it through the Qwen Agent, and saves the results."""
+    
+    agent = MediaPalAgent()
+    
+    with open(input_file, 'r', encoding='utf-8') as f:
+        parsed_subtitles = json.load(f)
+
+    test_batch = parsed_subtitles[:test_limit]
+    evaluated_data = []
+
+    print(f"--- Booting Media Pal Qwen Engine ---")
+    print(f"Analyzing {test_limit} chunks...\n")
+
+    for chunk in test_batch:
+        print(f"Evaluating timestamp: {chunk['location_flag']}")
+        
+        analysis = agent.analyze_chunk(chunk['text'])
+        
+        evaluated_data.append({
+            "location_flag": chunk['location_flag'],
+            "original_text": chunk['text'],
+            "ai_evaluation": analysis
+        })
+        
+        # Hugging Face free tier has rate limits, sleep ensures we don't get blocked
+        time.sleep(2)
+
+    with open(output_file, 'w', encoding='utf-8') as f:
+        json.dump(evaluated_data, f, indent=4)
+        
+    print(f"\nSuccess! Evaluations saved to {output_file}")
+
+# --- RUN THE SCRIPT ---
+if __name__ == "__main__":
+    input_path = "../data/smurfs_parsed.json"
+    output_path = "../data/smurfs_evaluated_qwen.json"
+    
+    run_evaluation_pipeline(input_path, output_path, test_limit=5)
