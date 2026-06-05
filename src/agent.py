@@ -1,3 +1,4 @@
+from scraper import ContextScraper
 import json
 import requests
 
@@ -9,43 +10,50 @@ class MediaPalAgent:
         self.endpoint = "http://localhost:11434/api/generate"
         self.model = "llama3.2" 
             
-    def get_system_prompt(self):
-        """The strict rulebook for the AI, optimized with explicit edge cases."""
-        return """
-        You are the Media Pal AI, a strict context-aware content classification agent.
-        Evaluate the provided movie subtitle text for appropriateness based on Kids-In-Mind standards.
-        
-        Score each category on a scale of 0 to 5. Follow these strict edge-case benchmarks:
+    def get_system_prompt(self, movie_context=None):
+        base_prompt = """You are an expert AI content moderator analyzing movie subtitles.
+    Evaluate the provided text chunk and assign a severity score from 0 to 5 for the following categories:
 
-        1. VIOLENCE:
-        - 0: Completely peaceful.
-        - 1-2 (Thematic/Fantasy Threat): Verbal threats, sci-fi/fantasy conflict, or mentions of evil intent without explicit physical harm (e.g., "wizards shrouding the universe in darkness", "I will stop you").
-        - 3-4 (Moderate/Implied Harm): Descriptions of physical fights, weapons, injuries, or non-graphic death.
-        - 5 (Severe/Graphic): Explicit descriptions of blood, gore, torture, or severe physical trauma.
+    1. VIOLENCE:
+    - 0: None.
+    - 1-2: Mild, slapstick, or fantasy violence.
+    - 3-4 (Moderate/Implied Harm): Descriptions of physical fights, weapons, injuries, or non-graphic death.
+    - 5 (Severe/Graphic): Explicit descriptions of blood, gore, torture, or severe physical trauma.
 
-        2. PROFANITY:
-        - 0: None.
-        - 1-2: Mild insults or crude language (e.g., "hell", "damn", "idiot").
-        - 3-4: Moderate expletives (e.g., "bitch", "asshole").
-        - 5: Severe/Frequent explicit expletives (e.g., "fuck").
+    2. PROFANITY:
+    - 0: None.
+    - 1-2: Mild insults or crude language (e.g., "hell", "damn", "idiot").
+    - 3-4: Moderate expletives (e.g., "bitch", "asshole").
+    - 5: Severe/Frequent explicit expletives (e.g., "fuck").
 
-        3. NUDITY/SEXUAL CONTENT:
-        - 0: None.
-        - 1-2: Mild romantic innuendo, flirting, or anatomical text context.
-        - 3-5: Increasing levels of explicit sexual dialogue or descriptions.
+    3. NUDITY/SEXUAL CONTENT:
+    - 0: None.
+    - 1-2: Mild romantic innuendo, flirting, or anatomical text context.
+    - 3-5: Increasing levels of explicit sexual dialogue or descriptions.
 
-        4. SUBSTANCE USE:
-        - 0: None.
-        - 1-2: Casual mentions of alcohol, smoking, or standard medical drugs.
-        - 3-5: Mentions of illegal drug abuse, intoxication, or addiction themes.
+    4. SUBSTANCE USE:
+    - 0: None.
+    - 1-2: Casual mentions of alcohol, smoking, or standard medical drugs.
+    - 3-5: Mentions of illegal drug abuse, intoxication, or addiction themes."""
 
-        You must return ONLY a raw JSON object. Do not include markdown, code blocks, or conversational text.
-        Format:
-        {
-            "scores": {"violence": int, "profanity": int, "nudity": int, "substance": int},
-            "reasoning": "One short sentence explaining the score, explicitly naming the trigger phrase."
-        }
-        """
+        # --- DYNAMIC CONTEXT INJECTION ---
+        context_injection = ""
+        if movie_context:
+            context_injection = f"""\n\nCRITICAL CONTEXT EXCEPTIONS FOR THIS SPECIFIC TITLE:
+    You must strictly apply these rules and ignore flagged words if they fall under these exceptions:
+    - Profanity Exceptions: {movie_context.get('profanity_rules', 'None')}
+    - Violence Exceptions: {movie_context.get('violence_rules', 'None')}
+    - Substance Exceptions: {movie_context.get('substance_rules', 'None')}"""
+
+        # --- STRICT OUTPUT FORMATTING ---
+        json_instructions = """\n\nYou must return ONLY a raw JSON object. Do not include markdown, code blocks, or conversational text.
+    Format:
+    {
+        "scores": {"violence": int, "profanity": int, "nudity": int, "substance": int},
+        "reasoning": "One short sentence explaining the score, explicitly naming the trigger phrase."
+    }"""
+
+        return base_prompt + context_injection + json_instructions
 
     def analyze_chunk(self, text_chunk):
         """Sends a single group of subtitles to local LLaMA via Ollama."""
