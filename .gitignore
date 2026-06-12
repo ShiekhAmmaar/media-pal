@@ -3,3 +3,5 @@ venv/
 *.json
 *.epub
 .env
+__pycache__/
+*.pyc
