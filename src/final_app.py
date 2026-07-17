@@ -136,6 +136,10 @@ def run_evaluation(input_file, output_file, movie_title, movie_url, limit=5):
     scraper = ContextScraper()
     context_data = scraper.fetch_movie_context(movie_url)
     
+    # If scraper fails and returns None, default to an empty dictionary
+    if context_data is None:
+        context_data = {}
+    
     # Format the scraped dictionary into a readable string
     formatted_context = f"""
     - Profanity Rules: {context_data.get('profanity_rules', 'None')}
@@ -180,7 +184,7 @@ if __name__ == "__main__":
     
     # 2. Update the movie details for the scraper to grab correct context rules
     TARGET_TITLE = "Deadpool"
-    TARGET_URL = "https://kids-in-mind.com/d/deadpool-2016.htm"
+    TARGET_URL = "[https://kids-in-mind.com/d/deadpool.htm](https://kids-in-mind.com/d/deadpool.htm)"
     
     # 3. Set limit to None to process the entire movie on the Calvert GPUs
     run_evaluation(IN_PATH, OUT_PATH, TARGET_TITLE, TARGET_URL, limit=None) 
