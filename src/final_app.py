@@ -10,82 +10,72 @@ from scraper import ContextScraper
 
 # --- 1. DEFINE STRICT OUTPUT STRUCTURE ---
 class ModerationScore(BaseModel):
-    violence: int = Field(description="Score from 0 to 5 for violence")
-    profanity: int = Field(description="Score from 0 to 5 for profanity")
-    nudity: int = Field(description="Score from 0 to 5 for nudity/sexual content")
-    substance: int = Field(description="Score from 0 to 5 for substance use")
-    thematic_intensity: int = Field(description="Score from 0 to 5 for suspense, psychological dread, or intense/frightening thematic elements")
-    reasoning: str = Field(description="One short sentence explaining the scores, naming the trigger phrase.")
+    violence: int = Field(description="Score from 0 to 5 for physical harm or threats")
+    profanity: int = Field(description="Score from 0 to 5 for crude or explicit language")
+    nudity: int = Field(description="Score from 0 to 5 for nudity or sexual content")
+    substance: int = Field(description="Score from 0 to 5 for alcohol, tobacco, or drug use")
+    thematic_intensity: int = Field(description="Score from 0 to 5 for suspense, psychological dread, or intense thematic elements")
+    behavioral_modeling: int = Field(description="Score from 0 to 5 for disrespect towards authority, defiance, lying, or unpunished bad behavior")
+    reasoning: str = Field(description="One short sentence explaining the scores, naming any trigger phrases.")
 
 parser = PydanticOutputParser(pydantic_object=ModerationScore)
 
 # --- 2. BUILD THE FEW-SHOT EXAMPLES ---
-# These "golden examples" teach the LLM exactly how to grade edge cases
 examples = [
     {
-        # Edge Case: Franchise-specific slang that sounds like profanity
-        "subtitle": "What the Smurf are you doing here?",
-        "evaluation": '{"violence": 0, "profanity": 0, "nudity": 0, "substance": 0, "reasoning": "Uses franchise-specific slang \'Smurf\' which is not profanity."}'
+        # MILD CROSSOVER (Violence 1, Profanity 1)
+        "subtitle": "Ouch! Darn it, you stepped right on my bad toe!",
+        "evaluation": '{"violence": 1, "profanity": 1, "nudity": 0, "substance": 0, "thematic_intensity": 0, "behavioral_modeling": 0, "reasoning": "Extremely mild physical pain and mild substitute profanity."}'
     },
     {
-        # Edge Case: Anatomical terms used in a medical or non-sexual context
-        "subtitle": "The doctor says you broke your breastbone and need a cast.",
-        "evaluation": '{"violence": 2, "profanity": 0, "nudity": 0, "substance": 0, "reasoning": "Medical discussion of an injury; \'breastbone\' is not sexual nudity."}'
+        # MODERATE CROSSOVER (Violence 3, Thematic 3)
+        "subtitle": "He grabbed the interrogator by the throat and slammed his head into the steel table. 'Talk!'",
+        "evaluation": '{"violence": 3, "profanity": 0, "nudity": 0, "substance": 0, "thematic_intensity": 3, "behavioral_modeling": 0, "reasoning": "Moderate, realistic physical violence and aggressive interrogation tactics."}'
     },
     {
-        # Edge Case: Slapstick/Cartoon violence vs. Realistic violence
-        "subtitle": "He slipped on the banana peel and bonked his head on the anvil!",
-        "evaluation": '{"violence": 1, "profanity": 0, "nudity": 0, "substance": 0, "reasoning": "Mild slapstick/cartoon violence with no severe physical trauma."}'
+        # EXTREME CROSSOVER (Violence 5, Profanity 5)
+        "subtitle": "I will gut you like a f***ing pig and watch you bleed out on this floor!",
+        "evaluation": '{"violence": 5, "profanity": 5, "nudity": 0, "substance": 0, "thematic_intensity": 4, "behavioral_modeling": 0, "reasoning": "Graphic, extreme threat of lethal violence paired with severe explicit profanity."}'
     },
     {
-        # Edge Case: Casual implied substance use vs. Abuse
-        "subtitle": "I need a drink after the day I've had. Barkeep, hit me.",
-        "evaluation": '{"violence": 0, "profanity": 0, "nudity": 0, "substance": 1, "reasoning": "Casual implied request for alcohol, no illegal drugs or addiction themes."}'
+        # MILD NUDITY / COMEDIC (Nudity 1, Behavioral 1)
+        "subtitle": "Oh no, the dog stole my towel! Don't look, I'm just in my underwear!",
+        "evaluation": '{"violence": 0, "profanity": 0, "nudity": 1, "substance": 0, "thematic_intensity": 0, "behavioral_modeling": 1, "reasoning": "Innocent, comedic partial exposure; slight embarrassment but no sexual context."}'
     },
     {
-        # Edge Case: Extreme explicit violation (The Anchor)
-        "subtitle": "I'm going to rip your head off, you stupid idiot!",
-        "evaluation": '{"violence": 4, "profanity": 2, "nudity": 0, "substance": 0, "reasoning": "Explicit threat of physical harm and mild insults."}'
+        # MODERATE NUDITY / SUGGESTIVE (Nudity 3, Profanity 2)
+        "subtitle": "She unbuttoned her blouse, revealing her bra, and pulled him onto the bed. 'Damn, you look good.'",
+        "evaluation": '{"violence": 0, "profanity": 2, "nudity": 3, "substance": 0, "thematic_intensity": 0, "behavioral_modeling": 0, "reasoning": "Highly suggestive sexual situation with partial nudity and mild cursing."}'
     },
     {
-        # Edge Case: Hyperbole / Common Idioms (Often misflagged as extreme violence)
-        "subtitle": "If I have to sit through another boring lecture, I'm going to shoot myself.",
-        "evaluation": '{"violence": 0, "profanity": 0, "nudity": 0, "substance": 0, "reasoning": "Common hyperbolic idiom expressing boredom; no actual threat of violence."}'
+        # EXTREME NUDITY (Nudity 5)
+        "subtitle": "[Explicit sexual moaning] Take it all off. I want to feel every inch of you.",
+        "evaluation": '{"violence": 0, "profanity": 0, "nudity": 5, "substance": 0, "thematic_intensity": 0, "behavioral_modeling": 0, "reasoning": "Dialogue and audio cues indicating explicit, graphic sexual intercourse."}'
     },
     {
-        # Edge Case: Innocent/Non-Sexual Nudity
-        "subtitle": "We need to get the baby in the bath, he's running around bare-bottomed!",
-        "evaluation": '{"violence": 0, "profanity": 0, "nudity": 0, "substance": 0, "reasoning": "Innocent, non-sexual mention of a baby bathing."}'
+        # MILD SUBSTANCE (Substance 1)
+        "subtitle": "Pour me a glass of champagne, let's celebrate the promotion.",
+        "evaluation": '{"violence": 0, "profanity": 0, "nudity": 0, "substance": 1, "thematic_intensity": 0, "behavioral_modeling": 0, "reasoning": "Casual, legal adult consumption of alcohol in a positive context."}'
     },
     {
-        # Edge Case: Sci-Fi/Fantasy Destruction (No biological harm)
-        "subtitle": "The star cruiser fired its laser cannons, obliterating the asteroid into dust.",
-        "evaluation": '{"violence": 1, "profanity": 0, "nudity": 0, "substance": 0, "reasoning": "Fantasy/Sci-fi action directed at an inanimate object with no biological harm."}'
+        # MODERATE SUBSTANCE & BEHAVIORAL (Substance 3, Behavioral 3)
+        "subtitle": "I snagged my older brother's vape. Let's go hit it behind the bleachers so the teachers don't see.",
+        "evaluation": '{"violence": 0, "profanity": 0, "nudity": 0, "substance": 3, "thematic_intensity": 0, "behavioral_modeling": 3, "reasoning": "Underage use of restricted substances combined with deceptive, rule-breaking behavior."}'
     },
     {
-        # Edge Case: Standard Medical/Prescription Drugs (Often misflagged as illegal substance abuse)
-        "subtitle": "It's time for your medication. Did you take your insulin today?",
-        "evaluation": '{"violence": 0, "profanity": 0, "nudity": 0, "substance": 1, "reasoning": "Standard mention of legal medical drugs; no intoxication or abuse themes."}'
+        # EXTREME SUBSTANCE & BEHAVIORAL (Substance 5, Behavioral 5, Profanity 3)
+        "subtitle": "Shut up, mom! You're a b***h! Pass the needle, I need another hit right now.",
+        "evaluation": '{"violence": 0, "profanity": 3, "nudity": 0, "substance": 5, "thematic_intensity": 3, "behavioral_modeling": 5, "reasoning": "Hardcore illegal drug addiction, severe verbal abuse, and absolute defiance of a parent."}'
     },
     {
-        # Edge Case: Positive/Empathetic use of Profanity
-        "subtitle": "That was a brilliant shot, I'm so damn proud of you!",
-        "evaluation": '{"violence": 0, "profanity": 2, "nudity": 0, "substance": 0, "reasoning": "Mild crude language used in a positive, congratulatory context."}'
+        # EXTREME THEMATIC INTENSITY (Thematic 5, Violence 0)
+        "subtitle": "[Demonic whispering] I am under your bed. I can see you breathing, but you can't scream.",
+        "evaluation": '{"violence": 0, "profanity": 0, "nudity": 0, "substance": 0, "thematic_intensity": 5, "behavioral_modeling": 0, "reasoning": "Maximum psychological dread and terrifying supernatural suspense without a single drop of physical violence."}'
     },
     {
-        # Edge Case: Pure suspense/psychological dread without any physical violence
-        "subtitle": "It's in the house. Hide under the bed and don't make a single sound.",
-        "evaluation": '{"violence": 0, "profanity": 0, "nudity": 0, "substance": 0, "thematic_intensity": 4, "crude_humor": 0, "reasoning": "High suspense and implied threat causing psychological dread, but no physical violence actually occurs."}'
-    },
-    {
-        # Edge Case: Slapstick/cartoonish "scares" that shouldn't trigger high intensity
-        "subtitle": "Boo! Haha, I got you! You should have seen the look on your face!",
-        "evaluation": '{"violence": 0, "profanity": 0, "nudity": 0, "substance": 0, "thematic_intensity": 1, "crude_humor": 0, "reasoning": "Playful, harmless jump scare among friends."}'
-    },
-    {
-        # Edge Case: Medical/clinical bodily functions that shouldn't trigger crude humor
-        "subtitle": "The patient is experiencing severe nausea and flatulence after the surgery.",
-        "evaluation": '{"violence": 0, "profanity": 0, "nudity": 0, "substance": 0, "thematic_intensity": 0, "crude_humor": 0, "reasoning": "Clinical, non-comedic discussion of bodily functions in a medical setting."}'
+        # THE ANTI-EDGE CASE (Zeroing out metrics properly)
+        "subtitle": "I refuse to lie to the principal for you anymore. It's wrong, and I'm telling the truth.",
+        "evaluation": '{"violence": 0, "profanity": 0, "nudity": 0, "substance": 0, "thematic_intensity": 0, "behavioral_modeling": 0, "reasoning": "Prosocial behavior; standing up for morality is positive and scores a zero for negative behavioral modeling."}'
     }
 ]
 
@@ -101,7 +91,9 @@ prefix = """You are an expert AI content moderator analyzing movie subtitles.
 CRITICAL MOVIE CONTEXT (Scraped from trusted sources):
 {movie_context}
 
-Assign a severity score from 0 to 5 for Violence, Profanity, Nudity, and Substance Use, keeping the above context in mind.
+Assign a severity score from 0 to 5 for Violence, Profanity, Nudity, Substance Use, Thematic Intensity, and Behavioral Modeling.
+
+CRITICAL INSTRUCTION: You must return ONLY a raw, valid JSON object. Do not include any conversational text. Do not wrap the output in markdown code blocks. All JSON keys MUST be strictly lowercase.
 
 {format_instructions}
 
@@ -121,70 +113,99 @@ few_shot_prompt = FewShotPromptTemplate(
 )
 
 # --- 4. ASSEMBLE THE LANGCHAIN PIPELINE ---
-# Temperature is 0 so the model is analytical, not creative
 llm = ChatOllama(model="llama3.2", base_url="http://localhost:11434", temperature=0)
 chain = few_shot_prompt | llm | parser
 
-# --- 5. EXECUTE THE BATCH PROCESSING ---
-def run_evaluation(input_file, output_file, movie_title, movie_url, limit=5):
+# --- 5. EXECUTE BATCH PROCESSING & COMPILATION ---
+def run_evaluation(input_file, output_file, movie_title, limit=None):
     if not os.path.exists(input_file):
-        print(f"Error: Could not find {input_file}. Make sure you are running this from the main media-pal folder.")
-        return
+        print(f"Error: Could not find {input_file}.")
+        return {"error": f"Could not find {input_file}"}
 
     # Fire up the scraper
     print(f"Scraping context for {movie_title}...")
     scraper = ContextScraper()
-    context_data = scraper.fetch_movie_context(movie_url)
     
-    # If scraper fails and returns None, default to an empty dictionary
+    # We now pass the movie title directly instead of the URL
+    context_data = scraper.fetch_movie_context(movie_title)
+    
     if context_data is None:
         context_data = {}
     
-    # Format the scraped dictionary into a readable string
+    # Inject all the newly scraped fields directly into the LLM context block
     formatted_context = f"""
+    - General Movie Tone & Plot: {context_data.get('general_summary', 'None')}
     - Profanity Rules: {context_data.get('profanity_rules', 'None')}
     - Violence Rules: {context_data.get('violence_rules', 'None')}
+    - Nudity Rules: {context_data.get('nudity_rules', 'None')}
     - Substance Rules: {context_data.get('substance_rules', 'None')}
+    - Behavioral Rules: {context_data.get('behavioral_rules', 'None')}
+    - Thematic Rules: {context_data.get('thematic_rules', 'None')}
     """
 
     with open(input_file, 'r', encoding='utf-8') as f:
         data = json.load(f)
 
-    test_batch = data[:limit]
-    results = []
+    test_batch = data[:limit] if limit else data
+    chunk_evaluations = []
+
+    # Track overall maximum severity scores across the entire film
+    overall_scores = {
+        "violence": 0,
+        "profanity": 0,
+        "nudity": 0,
+        "substance": 0,
+        "thematic_intensity": 0,
+        "behavioral_modeling": 0
+    }
 
     print(f"Starting LangChain pipeline on {len(test_batch)} subtitle chunks...")
 
     for chunk in test_batch:
         print(f"Processing timestamp: {chunk['location_flag']}")
         try:
-            # Pass both the text AND the scraped context into the chain
             result = chain.invoke({
                 "text": chunk['text'],
                 "movie_context": formatted_context
             })
             
-            results.append({
+            eval_dict = result.dict()
+            
+            # Update peak overall scores
+            for key in overall_scores.keys():
+                if key in eval_dict and isinstance(eval_dict[key], int):
+                    overall_scores[key] = max(overall_scores[key], eval_dict[key])
+
+            chunk_evaluations.append({
                 "timestamp": chunk['location_flag'],
                 "original_text": chunk['text'],
-                "evaluation": result.model_dump() # Pydantic converts the output back to a clean dictionary
+                "evaluation": eval_dict
             })
         except Exception as e:
             print(f"Error processing chunk: {e}")
+            chunk_evaluations.append({
+                "timestamp": chunk['location_flag'],
+                "original_text": chunk['text'],
+                "evaluation": {"error": "Failed to parse JSON output", "details": str(e)}
+            })
+
+    # Compile into a master output structure
+    final_output = {
+        "movie_title": movie_title,
+        "total_chunks_analyzed": len(test_batch),
+        "overall_scores": overall_scores,
+        "chunk_evaluations": chunk_evaluations
+    }
 
     with open(output_file, 'w', encoding='utf-8') as f:
-        json.dump(results, f, indent=4)
+        json.dump(final_output, f, indent=4)
     
-    print(f"\nFinished! Results saved to {output_file}")
+    print(f"\nFinished! Results compiled and saved to {output_file}")
+    return final_output
 
 if __name__ == "__main__":
-    # 1. Point to your newly parsed full-movie JSON files
     IN_PATH = "data/deadpool_parsed.json"
     OUT_PATH = "data/deadpool_final_eval.json"
-    
-    # 2. Update the movie details for the scraper to grab correct context rules
     TARGET_TITLE = "Deadpool"
-    TARGET_URL = "[https://kids-in-mind.com/d/deadpool.htm](https://kids-in-mind.com/d/deadpool.htm)"
     
-    # 3. Set limit to None to process the entire movie on the Calvert GPUs
-    run_evaluation(IN_PATH, OUT_PATH, TARGET_TITLE, TARGET_URL, limit=None) 
+    run_evaluation(IN_PATH, OUT_PATH, TARGET_TITLE, limit=None)

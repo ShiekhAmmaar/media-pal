@@ -1,60 +1,44 @@
 import requests
 from bs4 import BeautifulSoup
-import json
 
 class ContextScraper:
-    def __init__(self, use_mock_data=True):
-        """
-        use_mock_data (bool): Set to True for prototyping the LLM pipeline connection 
-        before the specific HTML selectors for the target website are finalized.
-        """
-        self.use_mock_data = use_mock_data
+    def __init__(self):
+        self.headers = {'User-Agent': 'Mozilla/5.0'}
+
+    def fetch_movie_context(self, movie_name):
+        clean_name = movie_name.lower().replace(" ", "")
+        first_letter = clean_name[0] if clean_name else "a"
+        url = f"https://kids-in-mind.com/{first_letter}/{clean_name}.htm"
         
-        # We use headers so sites don't block the university server IP
-        self.headers = {
-            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
+        print(f"\n[Scraper] Attempting to fetch real context from: {url}...")
+        
+        # 1. Establish our baseline safety rules
+        context_data = {
+            "general_summary": "No specific plot summary available. Grade purely on the provided text.",
+            "violence_rules": "IGNORE slapstick, cartoonish, or sci-fi fantasy violence.",
+            "profanity_rules": "IGNORE franchise-specific slang.",
+            "nudity_rules": "IGNORE innocent, non-sexual partial exposure.",
+            "substance_rules": "IGNORE standard medical procedures.",
+            "behavioral_rules": "IGNORE standing up to bullies; focus on negative defiance.",
+            "thematic_rules": "IGNORE harmless jump scares; focus on intense psychological dread."
         }
 
-    def fetch_movie_context(self, url):
-        """
-        Scrapes a movie review page to extract specific
-        context rules for the LLM to prevent false positives.
-        """
-        print(f"\n[Scraper] Fetching context from: {url}...")
-        
+        # 2. Try to salvage real-world data
         try:
-            # 1. Ping the website to prove our connection works
-            response = requests.get(url, headers=self.headers, timeout=10)
+            response = requests.get(url, headers=self.headers, timeout=5)
             response.raise_for_status()
             soup = BeautifulSoup(response.content, 'html.parser')
-
-            # 2. Return Data
-            if self.use_mock_data:
-                print("[Scraper] Notice: Using generalized mock data for LLM pipeline testing.")
-                return {
-                    "violence_rules": "IGNORE slapstick, cartoonish, or sci-fi fantasy violence that results in no physical consequence.",
-                    "profanity_rules": "IGNORE franchise-specific slang or made-up sci-fi/fantasy words. These do not count as profanity.",
-                    "substance_rules": "IGNORE mentions of standard medical procedures or prescription medications."
-                }
             
-            # --- PRODUCTION LOGIC GOES HERE LATER ---
-            # profanity_div = soup.find('div', class_='profanity-desc')
-            # etc...
+            # Scrape all substantial paragraphs to capture the plot and review notes
+            paragraphs = soup.find_all('p')
+            summary_text = " ".join([p.get_text().strip() for p in paragraphs if len(p.get_text()) > 50])
             
-            print("[Scraper] Successfully extracted live context.")
-            return {
-                "violence_rules": "",
-                "profanity_rules": "",
-                "substance_rules": ""
-            }
-
-        except requests.exceptions.RequestException as e:
-            print(f"[Scraper] Connection Error: {e}")
-            return None
-
-# --- Quick Test Block ---
-if __name__ == "__main__":
-    scraper = ContextScraper(use_mock_data=True)
-    # Testing the connection to the actual target site
-    test_context = scraper.fetch_movie_context("https://kids-in-mind.com/s/the-smurfs-2011.htm")
-    print(json.dumps(test_context, indent=4))
+            # Truncate to 1000 characters to save LLM context window/tokens
+            if summary_text:
+                context_data["general_summary"] = summary_text[:1000] + "..."
+                print("[Scraper] Successfully salvaged live contextual data!")
+                
+        except requests.exceptions.RequestException:
+            print(f"[Scraper] Connection failed for {url}. Falling back to baseline rules.")
+            
+        return context_data 
