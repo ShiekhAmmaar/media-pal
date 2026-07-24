@@ -114,7 +114,7 @@ few_shot_prompt = FewShotPromptTemplate(
 
 # --- 4. ASSEMBLE THE LANGCHAIN PIPELINE ---
 llm = ChatOllama(model="llama3.2", base_url="http://localhost:11434", temperature=0)
-chain = few_shot_prompt | llm | parser
+chain = few_shot_prompt | llm
 
 # --- 5. EXECUTE BATCH PROCESSING & COMPILATION ---
 def run_evaluation(input_file, output_file, movie_title, limit=None):
@@ -164,14 +164,25 @@ def run_evaluation(input_file, output_file, movie_title, limit=None):
     for chunk in test_batch:
         print(f"Processing timestamp: {chunk['location_flag']}")
         try:
-            result = chain.invoke({
+            # 1. Get the raw text from the LLM
+            raw_response = chain.invoke({
                 "text": chunk['text'],
                 "movie_context": formatted_context
             })
+            raw_text = raw_response.content
             
+            # 2. Aggressively strip out Markdown blocks and conversational filler
+            clean_text = raw_text.strip()
+            if "```json" in clean_text:
+                clean_text = clean_text.split("```json")[1].split("```")[0].strip()
+            elif "```" in clean_text:
+                clean_text = clean_text.split("```")[1].split("```")[0].strip()
+            
+            # 3. Parse the cleaned string using Pydantic
+            result = parser.parse(clean_text)
             eval_dict = result.dict()
             
-            # Update peak overall scores
+            # 4. Update peak overall scores
             for key in overall_scores.keys():
                 if key in eval_dict and isinstance(eval_dict[key], int):
                     overall_scores[key] = max(overall_scores[key], eval_dict[key])
@@ -181,8 +192,12 @@ def run_evaluation(input_file, output_file, movie_title, limit=None):
                 "original_text": chunk['text'],
                 "evaluation": eval_dict
             })
+            
         except Exception as e:
             print(f"Error processing chunk: {e}")
+            # THIS IS CRITICAL: If it fails again, it will print exactly what LLaMA messed up!
+            print(f"RAW LLM OUTPUT WAS: {raw_text if 'raw_text' in locals() else 'Failed to generate text'}")
+            
             chunk_evaluations.append({
                 "timestamp": chunk['location_flag'],
                 "original_text": chunk['text'],
