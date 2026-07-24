@@ -180,7 +180,6 @@ def run_evaluation(input_file, output_file, movie_title, limit=None):
                 clean_text = raw_text[start_idx:end_idx+1]
                 
                 # Parse using standard Python JSON (Bypassing LangChain completely)
-                import json
                 eval_dict = json.loads(clean_text)
             else:
                 raise ValueError("No JSON brackets {} found in LLM output.")
