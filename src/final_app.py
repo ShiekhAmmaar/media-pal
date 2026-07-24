@@ -171,18 +171,21 @@ def run_evaluation(input_file, output_file, movie_title, limit=None):
             })
             raw_text = raw_response.content
             
-            # 2. Aggressively strip out Markdown blocks and conversational filler
-            clean_text = raw_text.strip()
-            if "```json" in clean_text:
-                clean_text = clean_text.split("```json")[1].split("```")[0].strip()
-            elif "```" in clean_text:
-                clean_text = clean_text.split("```")[1].split("```")[0].strip()
+            # 2. THE NUCLEAR OPTION: Find the exact JSON brackets
+            start_idx = raw_text.find('{')
+            end_idx = raw_text.rfind('}')
             
-            # 3. Parse the cleaned string using Pydantic
-            result = parser.parse(clean_text)
-            eval_dict = result.dict()
+            if start_idx != -1 and end_idx != -1:
+                # Slice out only the JSON portion
+                clean_text = raw_text[start_idx:end_idx+1]
+                
+                # Parse using standard Python JSON (Bypassing LangChain completely)
+                import json
+                eval_dict = json.loads(clean_text)
+            else:
+                raise ValueError("No JSON brackets {} found in LLM output.")
             
-            # 4. Update peak overall scores
+            # 3. Update peak overall scores
             for key in overall_scores.keys():
                 if key in eval_dict and isinstance(eval_dict[key], int):
                     overall_scores[key] = max(overall_scores[key], eval_dict[key])
@@ -194,16 +197,18 @@ def run_evaluation(input_file, output_file, movie_title, limit=None):
             })
             
         except Exception as e:
-            print(f"Error processing chunk: {e}")
-            # THIS IS CRITICAL: If it fails again, it will print exactly what LLaMA messed up!
-            print(f"RAW LLM OUTPUT WAS: {raw_text if 'raw_text' in locals() else 'Failed to generate text'}")
+            print(f"\n--- ERROR ON CHUNK ---")
+            print(f"Timestamp: {chunk['location_flag']}")
+            print(f"Error Type: {type(e).__name__} - {e}")
+            print(f"RAW LLM OUTPUT:\n{raw_text if 'raw_text' in locals() else 'Failed to generate text'}")
+            print(f"----------------------\n")
             
             chunk_evaluations.append({
                 "timestamp": chunk['location_flag'],
                 "original_text": chunk['text'],
                 "evaluation": {"error": "Failed to parse JSON output", "details": str(e)}
             })
-
+            
     # Compile into a master output structure
     final_output = {
         "movie_title": movie_title,
